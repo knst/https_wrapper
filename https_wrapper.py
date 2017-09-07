@@ -9,8 +9,7 @@ import urllib2
 import sys
 
 class Wrapper(SimpleHTTPServer.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        print("get:", self.path)
+    def process_handler(self):
         url = host + self.path
         req = urllib2.Request(url)
         for header, value in self.headers.items():
@@ -18,7 +17,23 @@ class Wrapper(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 continue
             req.add_header(header, value)
 
-        self.copyfile(urllib2.urlopen(req), self.wfile)
+        try:
+            response = urllib2.urlopen(req)
+            self.send_response(response.code)
+            for name, value in response.info().items():
+                self.send_header(name, value)
+            self.end_headers()
+            self.wfile.write(response.read())
+        except urllib2.HTTPError as error:
+            if error.code != 200:
+                self.send_error(error.code)
+
+
+    def do_POST(self):
+        return self.process_handler()
+
+    def do_GET(self):
+        return self.process_handler()
 
 
 if len(sys.argv) < 3:
